@@ -1,6 +1,8 @@
 from user.models import User
 from flask import jsonify
 from database import db
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token
 
 class UserServices:
     def get_users(self):
@@ -9,7 +11,8 @@ class UserServices:
         return jsonify(users_list),200
     
     def create_user(self, data):
-        new_user = User(id = data['id'], username=data['username'], email=data['email'])
+        password_hash = generate_password_hash(data['password'])
+        new_user = User(id = data['id'], username=data['username'], email=data['email'], password = password_hash)
         db.session.add(new_user)
         db.session.commit()
         return jsonify({'message': 'User created successfully'}), 201
@@ -41,4 +44,17 @@ class UserServices:
         else:
             return jsonify({'message': 'User not found'}), 404
 
+    def user_login(self, data):
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({'message': 'Missing username or password'}), 400
+
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password, password):
+            return jsonify({'message': 'Invalid username or password'}), 401
+
+        access_token = create_access_token(identity={'id': user.id})
+        return jsonify({'access_token': access_token}), 200
     
