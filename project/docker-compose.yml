@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: flask_db
+
+  # redis:
+  #   image: redis:latest
+  #   ports:
+  #     - "6379:6379"
+
+  celery-worker:
+    build:
+      context: .
+    command: celery -A src.worker worker --loglevel=info
+    depends_on:
+      - db
+      # - redis
+    # environment:
+    #   CELERY_BROKER_URL: redis://localhost:6379/0
+    #   CELERY_RESULT_BACKEND: redis://localhost:6379/0
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    environment:
+    - discovery.type=single-node
+    - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+  web:
+    build:
+      context: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+      # - redis
+      - elasticsearch
+    environment:
+      FLASK_DEBUG: 1
+      FLASK_APP: src/app.py
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/flask_db
+      ELASTICSEARCH_URL: http://elasticsearch:9200/
+      REDIS_HOST : redis
+      REDIS_PORT : 6379
+      REDIS_DB : 0
+
+
+volumes:
+  postgres_data:
